@@ -1,4 +1,3 @@
-#include "drop.h"
 #include <math.h>
 #include <raylib.h>
 #include <raymath.h>
@@ -6,6 +5,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+
+#include "drop.h"
+
 
 const size_t SCRN_WIDTH = 900;
 const size_t SCRN_HEIGHT = 900;
