@@ -3,12 +3,11 @@ CC := clang
 CFLAGS := -O3 -Wall
 
 # Source and out files specific
-SRC := main.c
-OBJ := $(SRC:.c=.o)
-TARGET := murrls
-
 OBJDIR := build
 BINDIR := build/bin
+SRC := $(wildcard *.c)
+OBJ := $(patsubst %.c, $(OBJDIR)/%.o, $(SRC))
+TARGET := murrls
 
 # OS specific
 UNAME_S := $(shell uname -s)
@@ -22,7 +21,7 @@ WINDOWS_LIBS := -lwinmm -lgdi32 -lcomdlg32 -lole32 -luuid -loleaut32 -lshell32 -
 
 all: $(BINDIR)/$(TARGET)
 
-$(BINDIR)/$(TARGET): $(OBJDIR)/$(OBJ)
+$(BINDIR)/$(TARGET): $(OBJ)
 	@mkdir -p $(BINDIR) 
 ifeq ($(UNAME_S),Linux)
 	$(CC) $(CFLAGS) -o $@ $^ $(LINUX_LIBS)
