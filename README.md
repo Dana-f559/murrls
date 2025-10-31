@@ -6,7 +6,7 @@ and decided to code something today xD
 
 ## TODO
 
-- [ ] Ink drop
+- [x] Ink drop
 - [ ] Tine line
 - [ ] A mode to switch between the two (both keyboard & GUI buttons)
 - [ ] Colors
