@@ -2,21 +2,20 @@
 #include <stddef.h>
 
 typedef struct {
-    Vector2 *vertices;  // the array of vertex points making up the drop shape
-    size_t vcount;      // how many vertices the shape has
-    Color color;        // color of the drop
+    Vector2* vertices; // the array of vertex points making up the drop shape
+    size_t vcount;     // how many vertices the shape has
+    Color color;       // color of the drop
 } Drop;
 
 /**
- * Create a heap allocated circular drop with vcount number of vertices around
- * center.
+ * Create a circular drop with vcount number of vertices around center.
  *
  * @param center The center of the circle.
  * @param radius The radius of the circle.
  * @param vcount The number of vertices.
  * @param color Color of the drop.
  *
- * @return Heap allocated pointer of the created Drop.
+ * @return The created Drop struct.
  */
 Drop circularDrop(Vector2 center, float radius, size_t vcount, Color color);
 
@@ -28,17 +27,19 @@ Drop circularDrop(Vector2 center, float radius, size_t vcount, Color color);
 void destroyDrop(Drop drop);
 
 /**
-  * Draw the drop.
-  *
-  * @param drop The input drop to be drawen.
+ * Draw the drop.
+ *
+ * @param drop The input drop to be drawen.
  */
 void drawDrop(Drop drop);
 
 /**
- * Marble the input drop given a center. Using this equation:
- *   p = c + (p - c) * sqrt(1 + r^2 / (p - c)^2)
+ * Marble the vertices of the drop given a center and radius. Using this
+ * equation: p = c + (p - c) * sqrt(1 + r^2 / (p - c)^2)
  * where p is a vertex point.
  *
- * @param drop_ptr Pointer of the drop to be marbled.
+ * @param drop The drop to be marbled.
+ * @param c The center of the circle from which to be marbled.
+ * @param r The radius of the circle from which to be marbled.
  */
-void marbleDrop(Drop *drop, Vector2 center, size_t r);
+void marbleDrop(Drop drop, Vector2 c, float r);
