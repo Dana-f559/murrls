@@ -46,27 +46,26 @@ int main(void) {
         } else if (type_W == 1) {
             if (dropCount < 10){
                 for (size_t i = 0; i < 10; i++ ) {
-                int grey = GetRandomValue(50, 200);
-                Color shade = (Color){grey, grey, grey, 255};
+                    int grey = GetRandomValue(50, 200);
+                    Color shade = (Color){grey, grey, grey, 255};
 
-                for (size_t i = 0; i < dropCount; i++) {
-                    marbleDrop(drops[i], SCRN_CENTER, DROP_RADIUS);
-                }
+                    for (size_t i = 0; i < dropCount; i++) {
+                        marbleDrop(drops[i], SCRN_CENTER, DROP_RADIUS);
+                    }
 
-                drops[dropCount] = circularDrop(SCRN_CENTER, DROP_RADIUS, DROP_SIDES, shade);
-                dropCount ++;
-            } 
+                    drops[dropCount] = circularDrop(SCRN_CENTER, DROP_RADIUS, DROP_SIDES, shade);
+                    dropCount ++;
+                } 
             }
             
             if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
                 for (size_t i = 0; i < dropCount; i++) {
                     
                     Vector2 mouse = GetMousePosition();
-                    Vector2 bv = { mouse.x, mouse.y - 400 };
-                    Vector2 mv = { mouse.x, mouse.y + 400 };
+                    Vector2 mv = {0, 1};
 
                     for (size_t i = 0; i < dropCount; i++) {
-                        tineDrop(drops[i], bv, mv, 20.0f, 1.0f);
+                        tineDrop(drops[i], mouse, mv, 20.0f, 1.0f);
                     }
                 }
                 

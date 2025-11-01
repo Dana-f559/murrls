@@ -63,21 +63,17 @@ void marbleDrop(Drop drop, Vector2 c, float r) {
 }
 
 void tineDrop(Drop drop, Vector2 bv, Vector2 mv, float z, float c) {
+    float u = 1 / pow(2, 1 / c);
+    Vector2 N = Vector2Normalize(Vector2Rotate(mv, PI / 2.0f));
+
     for (size_t i = 0; i < drop.vcount; i ++) {
         Vector2 p = drop.vertices[i];
-        // pv = pv + z * (u ^ d) * mv
-        // u = 1 / 2 ^ (1 / c)
+        Vector2 PB = Vector2Subtract(p, bv);
 
-        // gpt wrote this btw, not me, i didnt get what was written in the .h
-        Vector2 diff = Vector2Subtract(p, bv);
-        float dist_sqr = Vector2LengthSqr(diff);
+        float d = fabs(Vector2DotProduct(PB, N));
 
-        float factor = z / powf(dist_sqr, c * 0.5f);
+        float mag = z * pow(u, d);
 
-        Vector2 tine_dir = Vector2Normalize(Vector2Subtract(mv, bv));
-
-        Vector2 displacement = Vector2Scale(tine_dir, factor);
-        
-        drop.vertices[i] = Vector2Add(p, displacement);
+        drop.vertices[i] = Vector2Add(p, Vector2Scale(mv, mag));
     }
 }
