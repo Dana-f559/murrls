@@ -13,10 +13,17 @@ const Vector2 SCRN_CENTER = {.x = (float)SCRN_WIDTH / 2,
                              .y = (float)SCRN_HEIGHT / 2};
 const size_t SCRN_FPS = 60;
 
-const size_t MAX_DROPS = 10;
+const size_t MAX_DROPS = 1000;
 const size_t DROP_RADIUS = 90;
 const size_t DROP_SIDES = 400;
 
+const int INP_TYPE_DROPPING = 0;
+const int INP_TYPE_TINE = 1;
+
+void handleInpTypeToggle(int* inp_type);
+void handleDropping(const int inp_type, Drop* drops, size_t* drop_count_ptr);
+void handleTine(const int inp_type, bool* start_has_selected, Vector2* start,
+                Vector2* end, Drop* drops, size_t drop_count);
 
 int main(void) {
     SetConfigFlags(FLAG_MSAA_4X_HINT);
@@ -24,63 +31,34 @@ int main(void) {
     InitWindow(SCRN_WIDTH, SCRN_HEIGHT, "murrls");
 
     Drop drops[MAX_DROPS];
-    size_t dropCount = 0;
-    size_t type_W = 1;
+    size_t drop_count = 0;
+    int inp_type = INP_TYPE_DROPPING;
+
+    bool is_start_selected = false;
+    Vector2 start;
+    Vector2 end;
+
+    // for (size_t i = 10; i > 0; i--) {
+    //     const float radius = 20.0 * (float)i;
+    //     // const float hue = (float)GetRandomValue(0, 360);
+    //     const Color color = ColorFromHSV(200, 1.0f, 0.5f);
+    //     drops[10 - i] = circularDrop(SCRN_CENTER, radius, DROP_SIDES, color);
+    //     drop_count++;
+    // }
 
     while (!WindowShouldClose()) {
-        // add a drop at the mouses position, if there are less then 100 drops
-        // already
-
-        if (type_W == 0) {
-            if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && dropCount < MAX_DROPS) {
-            Vector2 mouse = GetMousePosition();
-
-            // modify all of the other drops before adding
-            for (size_t i = 0; i < dropCount; i++) {
-                marbleDrop(drops[i], mouse, DROP_RADIUS);
-            }
-
-            drops[dropCount] =
-                circularDrop(mouse, DROP_RADIUS, DROP_SIDES, BLUE);
-            dropCount++;
-            }
-        } else if (type_W == 1) {
-            if (dropCount < MAX_DROPS) {
-                for (size_t i = 0; i < MAX_DROPS; i++ ) {
-                    int grey = GetRandomValue(50, 200);
-                    Color shade = (Color){grey, grey, grey, 255};
-
-                    for (size_t i = 0; i < dropCount; i++) {
-                        marbleDrop(drops[i], SCRN_CENTER, DROP_RADIUS);
-                    }
-
-                    drops[dropCount] = circularDrop(SCRN_CENTER, DROP_RADIUS, DROP_SIDES, shade);
-                    dropCount ++;
-                } 
-            }
-            
-            if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-                for (size_t i = 0; i < dropCount; i++) {
-                    
-                    Vector2 mouse = GetMousePosition();
-                    Vector2 mv = {0, 1};
-
-                    for (size_t i = 0; i < dropCount; i++) {
-                        tineDrop(drops[i], mouse, mv, 5.0f, 10.0f);
-                    }
-                }
-                
-            }
-        }
-        
-
         BeginDrawing();
+
+        handleInpTypeToggle(&inp_type);
+        handleDropping(inp_type, drops, &drop_count);
+        handleTine(inp_type, &is_start_selected, &start, &end, drops,
+                   drop_count);
 
         ClearBackground(RAYWHITE);
         DrawFPS(SCRN_WIDTH - 100, 10);
 
         // draw all of the drops
-        for (size_t i = 0; i < dropCount; i++) {
+        for (size_t i = 0; i < drop_count; i++) {
             drawDrop(drops[i]);
         }
 
@@ -88,10 +66,64 @@ int main(void) {
     }
 
     // free the memory
-    for (size_t i = 0; i < dropCount; i++) {
+    for (size_t i = 0; i < drop_count - 1; i++) {
         destroyDrop(drops[i]);
     }
 
     CloseWindow();
     return 0;
+}
+
+void handleInpTypeToggle(int* inp_type) {
+    if (IsKeyPressed(KEY_SPACE)) {
+        *inp_type =
+            *inp_type == INP_TYPE_DROPPING ? INP_TYPE_TINE : INP_TYPE_DROPPING;
+    }
+}
+
+void handleDropping(const int inp_type, Drop* drops, size_t* drop_count_ptr) {
+    if (inp_type != INP_TYPE_DROPPING ||
+        !IsMouseButtonPressed(MOUSE_BUTTON_LEFT) ||
+        *drop_count_ptr >= MAX_DROPS) {
+        return;
+    }
+
+    Vector2 mouse = GetMousePosition();
+
+    // modify all of the other drops before adding
+    for (size_t i = 0; i < *drop_count_ptr; i++) {
+        marbleDrop(drops[i], mouse, DROP_RADIUS);
+    }
+
+    drops[*drop_count_ptr] = circularDrop(mouse, DROP_RADIUS, DROP_SIDES, BLUE);
+    (*drop_count_ptr)++;
+}
+
+void handleTine(const int inp_type, bool* is_start_selected_ptr,
+                Vector2* start_ptr, Vector2* end_ptr, Drop* drops,
+                size_t drop_count) {
+    if (inp_type != INP_TYPE_TINE) {
+        return;
+    }
+
+    if (IsMouseButtonUp(MOUSE_BUTTON_LEFT)) {
+        *is_start_selected_ptr = false;
+    } else if (!IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
+        return;
+    }
+
+    if (*is_start_selected_ptr) {
+        *end_ptr = GetMousePosition();
+        *is_start_selected_ptr = false;
+
+        for (size_t i = 0; i < drop_count; i++) {
+            const Vector2 mv = Vector2Subtract(*end_ptr, *start_ptr);
+            for (size_t i = 0; i < drop_count; i++) {
+                tineDrop(drops[i], *start_ptr, mv, 0.2f, 20.0f);
+            }
+        }
+    } else {
+        *start_ptr = GetMousePosition();
+        *is_start_selected_ptr = true;
+    }
 }
