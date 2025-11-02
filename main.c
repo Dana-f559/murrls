@@ -9,13 +9,13 @@
 
 const size_t SCRN_WIDTH = 900;
 const size_t SCRN_HEIGHT = 900;
-const Vector2 SCRN_CENTER = {.x = (float)SCRN_WIDTH / 2,
-                             .y = (float)SCRN_HEIGHT / 2};
+const Vector2 SCRN_CENTER = {.x = (float)SCRN_WIDTH / 2.f,
+                             .y = (float)SCRN_HEIGHT / 2.f};
 const size_t SCRN_FPS = 60;
 
 const size_t MAX_DROPS = 1000;
-const size_t DROP_RADIUS = 90;
-const size_t DROP_SIDES = 400;
+const size_t DROP_RADIUS = 60;
+const size_t DROP_SIDES = 600;
 
 const int INP_TYPE_DROPPING = 0;
 const int INP_TYPE_TINE = 1;
@@ -95,7 +95,10 @@ void handleDropping(const int inp_type, Drop* drops, size_t* drop_count_ptr) {
         marbleDrop(drops[i], mouse, DROP_RADIUS);
     }
 
-    drops[*drop_count_ptr] = circularDrop(mouse, DROP_RADIUS, DROP_SIDES, BLUE);
+    const float hue = (float)GetRandomValue(0, 360);
+    const Color color = ColorFromHSV(hue, 1.f, 1.f);
+    drops[*drop_count_ptr] =
+        circularDrop(mouse, DROP_RADIUS, DROP_SIDES, color);
     (*drop_count_ptr)++;
 }
 
@@ -119,7 +122,7 @@ void handleTine(const int inp_type, bool* is_start_selected_ptr,
         for (size_t i = 0; i < drop_count; i++) {
             const Vector2 mv = Vector2Subtract(*end_ptr, *start_ptr);
             for (size_t i = 0; i < drop_count; i++) {
-                tineDrop(drops[i], *start_ptr, mv, 0.2f, 20.0f);
+                tineDrop(drops[i], *start_ptr, mv, 0.01f, 15.0f);
             }
         }
     } else {
