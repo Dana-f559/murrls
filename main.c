@@ -20,16 +20,16 @@ const int INP_TYPE_DROPPING = 0;
 const int INP_TYPE_TINE = 1;
 
 typedef struct {
-    Drop *drops;
+    Drop* drops;
     size_t drop_count;
     bool has_tine_started;
-    Vector2 start;
-    Vector2 end;
+    Vector2 tine_start;
+    Vector2 tine_end;
 } DropHandler;
 
 void handleInpTypeToggle(int* inp_type);
-void handleDropping(const int inp_type, DropHandler *handler);
-void handleTine(const int inp_type, DropHandler *handler);
+void handleDropping(const int inp_type, DropHandler* handler);
+void handleTine(const int inp_type, DropHandler* handler);
 
 int main(void) {
     SetConfigFlags(FLAG_MSAA_4X_HINT);
@@ -40,8 +40,6 @@ int main(void) {
     size_t drop_count = 0;
     int inp_type = INP_TYPE_DROPPING;
 
-    // bool is_start_selected = false;
-
     DropHandler handler;
     handler.drops = drops;
     handler.drop_count = drop_count;
@@ -51,9 +49,9 @@ int main(void) {
         BeginDrawing();
 
         handleInpTypeToggle(&inp_type);
-        
         handleDropping(inp_type, &handler);
         handleTine(inp_type, &handler);
+
         ClearBackground(RAYWHITE);
         DrawFPS(SCRN_WIDTH - 100, 10);
 
@@ -66,7 +64,7 @@ int main(void) {
     }
 
     // free the memory
-    for (size_t i = 0; i < drop_count - 1; i++) {
+    for (size_t i = 0; i < drop_count; i++) {
         destroyDrop(handler.drops[i]);
     }
 
@@ -75,13 +73,18 @@ int main(void) {
 }
 
 void handleInpTypeToggle(int* inp_type) {
-    if (IsKeyPressed(KEY_SPACE)) {
-        *inp_type =
-            *inp_type == INP_TYPE_DROPPING ? INP_TYPE_TINE : INP_TYPE_DROPPING;
+    if (!IsKeyPressed(KEY_SPACE)) {
+        return;
+    }
+
+    if (*inp_type == INP_TYPE_DROPPING) {
+        *inp_type = INP_TYPE_TINE;
+    } else {
+        *inp_type = INP_TYPE_DROPPING;
     }
 }
 
-void handleDropping(const int inp_type, DropHandler *handler) {
+void handleDropping(const int inp_type, DropHandler* handler) {
     if (inp_type != INP_TYPE_DROPPING ||
         !IsMouseButtonPressed(MOUSE_BUTTON_LEFT) ||
         handler->drop_count >= MAX_DROPS) {
@@ -97,12 +100,12 @@ void handleDropping(const int inp_type, DropHandler *handler) {
 
     const float hue = (float)GetRandomValue(0, 360);
     const Color color = ColorFromHSV(hue, 1.f, 1.f);
-    handler->drops[handler->drop_count] =
-        circularDrop(mouse, DROP_RADIUS, DROP_SIDES, color);
-    (handler->drop_count)++;
+    const Drop drop = circularDrop(mouse, DROP_RADIUS, DROP_SIDES, color);
+    handler->drops[handler->drop_count] = drop;
+    handler->drop_count++;
 }
 
-void handleTine(const int inp_type, DropHandler *handler) {
+void handleTine(const int inp_type, DropHandler* handler) {
     if (inp_type != INP_TYPE_TINE) {
         return;
     }
@@ -114,17 +117,20 @@ void handleTine(const int inp_type, DropHandler *handler) {
     }
 
     if (handler->has_tine_started) {
-        handler->end = GetMousePosition();
+        handler->tine_end = GetMousePosition();
         handler->has_tine_started = false;
 
         for (size_t i = 0; i < handler->drop_count; i++) {
-            const Vector2 mv = Vector2Subtract(handler->end, handler->start);
+            const Vector2 startv = handler->tine_start;
+            const Vector2 endv = handler->tine_end;
+            const Vector2 mv = Vector2Subtract(endv, startv);
+
             for (size_t i = 0; i < handler->drop_count; i++) {
-                tineDrop(handler->drops[i], handler->start, mv, 0.01f, 15.0f);
+                tineDrop(handler->drops[i], startv, mv, 0.01f, 15.0f);
             }
         }
     } else {
-        handler->start = GetMousePosition();
+        handler->tine_start = GetMousePosition();
         handler->has_tine_started = true;
     }
 }

@@ -8,6 +8,6 @@ and decided to code something today xD
 
 - [x] Ink drop
 - [x] Tine line
-- [ ] A mode to switch between the two (both keyboard & GUI buttons)
+- [x] A mode to switch between the two (space button)
 - [ ] Colors
 - [ ] Add example GIF in README.md
