@@ -70,6 +70,13 @@ const Rectangle RESET_BTN_RECT = {
     .height = BTN_HEIGHT,
 };
 
+const Rectangle RAND_COLORS_BTN_RECT = {
+    .x = RESET_BTN_RECT.x,
+    .y = RESET_BTN_RECT.y + RESET_BTN_RECT.height + 10.f,
+    .width = RESET_BTN_RECT.width,
+    .height = BTN_HEIGHT,
+};
+
 typedef struct {
     int inp_type;
     Drop* drops;
@@ -77,6 +84,8 @@ typedef struct {
     bool has_tine_started;
     Vector2 tine_start;
     Vector2 tine_end;
+    Color selected_color;
+    bool use_random_colors;
 } AppHandler;
 
 Color colorFromHSL(const float h, const float s, const float l);
@@ -97,12 +106,10 @@ int main(void) {
     InitWindow(SCRN_WIDTH, SCRN_HEIGHT, "murrls");
 
     Drop drops[MAX_DROPS];
-    size_t drop_count = 0;
 
     AppHandler handler = {0};
     handler.drops = drops;
-    handler.drop_count = drop_count;
-    handler.has_tine_started = false;
+    handler.selected_color = ColorFromHSV(0.f, 1.f, 1.f);
 
     while (!WindowShouldClose()) {
         BeginDrawing();
@@ -122,9 +129,7 @@ int main(void) {
     }
 
     // free the memory
-    for (size_t i = 0; i < drop_count; i++) {
-        destroyDrop(handler.drops[i]);
-    }
+    resetCanvas(&handler);
 
     CloseWindow();
     return 0;
@@ -195,8 +200,18 @@ void drawComponents(AppHandler* handler_ptr) {
     DrawText("Reset", (int)RESET_BTN_RECT.x + 90.f, (int)RESET_BTN_RECT.y + 8.f,
              REG_FONT_SIZE, BLACK);
 
-    DrawText("Space: Toggle Mode\nR: Clear Canvas", (int)RESET_BTN_RECT.x,
-             (int)RESET_BTN_RECT.y + RESET_BTN_RECT.height + 8.f,
+    const Color rand_btn_bg_clr =
+        handler_ptr->use_random_colors ? GRAY : LIGHTGRAY;
+    const Color rand_btn_text_clr =
+        handler_ptr->use_random_colors ? RAYWHITE : BLACK;
+    DrawRectangleRec(RAND_COLORS_BTN_RECT, rand_btn_bg_clr);
+    DrawText("Rand Colors", (int)RAND_COLORS_BTN_RECT.x + 45.f,
+             (int)RAND_COLORS_BTN_RECT.y + 8.f, REG_FONT_SIZE,
+             rand_btn_text_clr);
+
+    DrawText("Space: Toggle Mode\nR: Clear Canvas\nG: Random Colors",
+             (int)RAND_COLORS_BTN_RECT.x,
+             (int)RAND_COLORS_BTN_RECT.y + RAND_COLORS_BTN_RECT.height + 8.f,
              SMALL_FONT_SIZE, BLACK);
 }
 
@@ -224,8 +239,12 @@ void handleDropping(AppHandler* handler_ptr) {
         marbleDrop(handler_ptr->drops[i], mouse, DROP_RADIUS);
     }
 
-    const float hue = (float)GetRandomValue(0, 360);
-    const Color color = ColorFromHSV(hue, 1.f, 1.f);
+    if (handler_ptr->use_random_colors) {
+        const float hue = (float)GetRandomValue(0, 360);
+        handler_ptr->selected_color = ColorFromHSV(hue, 1.f, 1.f);
+    }
+
+    const Color color = handler_ptr->selected_color;
     const Drop drop = circularDrop(mouse, DROP_RADIUS, DROP_SIDES, color);
     handler_ptr->drops[handler_ptr->drop_count] = drop;
     handler_ptr->drop_count++;
@@ -293,6 +312,11 @@ void handleUIBtnInputs(AppHandler* handler_ptr) {
 
     if (CheckCollisionPointRec(mouse_pos, RESET_BTN_RECT)) {
         resetCanvas(handler_ptr);
+        return;
+    }
+
+    if (CheckCollisionPointRec(mouse_pos, RAND_COLORS_BTN_RECT)) {
+        handler_ptr->use_random_colors = !handler_ptr->use_random_colors;
         return;
     }
 }
