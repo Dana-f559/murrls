@@ -300,6 +300,15 @@ void handleUIBtnInputs(AppHandler* handler_ptr) {
 
     const Vector2 mouse_pos = GetMousePosition();
 
+    if (CheckCollisionPointRec(mouse_pos, COLOR_PICKER_RECT)) {
+        const Image scrn_img = LoadImageFromScreen();
+        const Color color =
+            GetImageColor(scrn_img, (int)mouse_pos.x, (int)mouse_pos.y);
+        handler_ptr->use_random_colors = false;
+        handler_ptr->selected_color = color;
+        UnloadImage(scrn_img);
+    }
+
     if (CheckCollisionPointRec(mouse_pos, DROP_BTN_RECT)) {
         handler_ptr->inp_type = INP_TYPE_DROPPING;
         return;

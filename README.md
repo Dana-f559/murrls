@@ -10,5 +10,5 @@ and decided to code something today xD
 - [x] Tine line
 - [x] A mode to switch between the two (space button)
 - [x] Some GUI buttons
-- [ ] Colors
-- [ ] Add example GIF in README.md
+- [x] Colors
+- [x] Add example GIF in README.md
