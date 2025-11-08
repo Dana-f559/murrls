@@ -1,46 +1,105 @@
+// Copyright (c) 2025 Shubham LaV & Bogdana Farace. All Rights Reserved.
+
 #include <raylib.h>
 #include <raymath.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 
 #include "drop.h"
 
-const size_t SCRN_WIDTH = 900;
-const size_t SCRN_HEIGHT = 900;
-const Vector2 SCRN_CENTER = {.x = (float)SCRN_WIDTH / 2.f,
-                             .y = (float)SCRN_HEIGHT / 2.f};
-const size_t SCRN_FPS = 60;
+// Non-UI constants
+static const size_t MAX_DROPS = 1000;
+static const size_t DROP_RADIUS = 60;
+static const size_t DROP_SIDES = 600;
 
-const size_t MAX_DROPS = 1000;
-const size_t DROP_RADIUS = 60;
-const size_t DROP_SIDES = 600;
+// Enum
+static const int INP_TYPE_DROPPING = 0;
+static const int INP_TYPE_TINE = 1;
 
-const int INP_TYPE_DROPPING = 0;
-const int INP_TYPE_TINE = 1;
+// UI related constants
+static const float PANEL_WIDTH = 300.f;
+
+// These are int because DrawText takes int
+static const int REG_FONT_SIZE = 30;
+static const int SMALL_FONT_SIZE = 20;
+
+static const Rectangle CANVAS_RECT = {
+    .x = 0.f,
+    .y = 0.f,
+    .width = 900.f,
+    .height = 900.f,
+};
+
+static const Rectangle COLOR_PICKER_RECT = {
+    .x = CANVAS_RECT.x + CANVAS_RECT.width,
+    .y = 40.f, // Eyeballed FPS text
+    .width = PANEL_WIDTH,
+    .height = 430.f,
+};
+
+static const Rectangle BTNS_CONTNR_RECT = {
+    .x = COLOR_PICKER_RECT.x,
+    .y = COLOR_PICKER_RECT.y + COLOR_PICKER_RECT.height, // Eyeballed FPS text
+    .width = PANEL_WIDTH,
+    .height = 430.f,
+};
+
+const float BTN_WIDTH = BTNS_CONTNR_RECT.width / 2.f - 20.f;
+const float BTN_HEIGHT = (float)REG_FONT_SIZE * 1.5;
+
+static const Rectangle DROP_BTN_RECT = {
+    .x = BTNS_CONTNR_RECT.x + 15.f,
+    .y = BTNS_CONTNR_RECT.y + 15.f,
+    .width = BTN_WIDTH,
+    .height = BTN_HEIGHT,
+};
+
+const Rectangle TINE_BTN_RECT = {
+    .x = DROP_BTN_RECT.x + DROP_BTN_RECT.width + 10.f,
+    .y = DROP_BTN_RECT.y,
+    .width = BTN_WIDTH,
+    .height = BTN_HEIGHT,
+};
+
+const Rectangle RESET_BTN_RECT = {
+    .x = DROP_BTN_RECT.x,
+    .y = DROP_BTN_RECT.y + DROP_BTN_RECT.height + 10.f,
+    .width = (TINE_BTN_RECT.x + TINE_BTN_RECT.width) - DROP_BTN_RECT.x,
+    .height = BTN_HEIGHT,
+};
 
 typedef struct {
+    int inp_type;
     Drop* drops;
     size_t drop_count;
     bool has_tine_started;
     Vector2 tine_start;
     Vector2 tine_end;
-} DropHandler;
+} AppHandler;
 
-void handleInpTypeToggle(int* inp_type);
-void handleDropping(const int inp_type, DropHandler* handler);
-void handleTine(const int inp_type, DropHandler* handler);
+Color colorFromHSL(const float h, const float s, const float l);
+void drawComponents(AppHandler* handler_ptr);
+void drawDrops(AppHandler* handler_ptr);
+void handleDropping(AppHandler* handler);
+void handleKeyboardInputs(AppHandler* handler_ptr);
+void handleTine(AppHandler* handler);
+void handleUIBtnInputs(AppHandler* handler_ptr);
+void resetCanvas(AppHandler* handler_ptr);
 
 int main(void) {
+    const int SCRN_WIDTH = (int)(CANVAS_RECT.width + PANEL_WIDTH);
+    const int SCRN_HEIGHT = (int)(CANVAS_RECT.height);
+
     SetConfigFlags(FLAG_MSAA_4X_HINT);
-    SetTargetFPS(SCRN_FPS);
+    SetTargetFPS(60);
     InitWindow(SCRN_WIDTH, SCRN_HEIGHT, "murrls");
 
     Drop drops[MAX_DROPS];
     size_t drop_count = 0;
-    int inp_type = INP_TYPE_DROPPING;
 
-    DropHandler handler;
+    AppHandler handler = {0};
     handler.drops = drops;
     handler.drop_count = drop_count;
     handler.has_tine_started = false;
@@ -48,17 +107,16 @@ int main(void) {
     while (!WindowShouldClose()) {
         BeginDrawing();
 
-        handleInpTypeToggle(&inp_type);
-        handleDropping(inp_type, &handler);
-        handleTine(inp_type, &handler);
+        handleKeyboardInputs(&handler);
+        handleUIBtnInputs(&handler);
+        handleDropping(&handler);
+        handleTine(&handler);
 
         ClearBackground(RAYWHITE);
         DrawFPS(SCRN_WIDTH - 100, 10);
 
-        // draw all of the drops
-        for (size_t i = 0; i < handler.drop_count; i++) {
-            drawDrop(handler.drops[i]);
-        }
+        drawDrops(&handler);
+        drawComponents(&handler);
 
         EndDrawing();
     }
@@ -72,65 +130,177 @@ int main(void) {
     return 0;
 }
 
-void handleInpTypeToggle(int* inp_type) {
-    if (!IsKeyPressed(KEY_SPACE)) {
-        return;
+Color colorFromHSL(const float h, const float s, const float l) {
+    float l_min = l < 1.f - l ? l : 1.f - l;
+    const float v = l + s * l_min;
+    const float sv = v == 0.f ? 0.f : 2.f * (1.f - l / v);
+    return ColorFromHSV(h, sv, v);
+}
+
+void drawComponents(AppHandler* handler_ptr) {
+    // NOTE: Canvas need not be drawn but if it is drawn, then drawDrop
+    // functions must be drawn right after it ane before the draw other
+    // components, otherwise the drops will be over the components
+
+    // Color Wheel
+    const float DELTA_HUE = 360.f / (float)COLOR_PICKER_RECT.width;
+    float hue = 0.f;
+    for (float x = 0.f; x < COLOR_PICKER_RECT.width; x += 1.f) {
+        const float DELTA_LIGHTNESS = 1.f / COLOR_PICKER_RECT.height;
+        float lightness = 1.f;
+
+        for (float y = 0.f; y < COLOR_PICKER_RECT.height; y += 1.f) {
+            const Color color = colorFromHSL(hue, 1.f, lightness);
+            lightness -= DELTA_LIGHTNESS;
+
+            Vector2 pos = {.x = x, .y = y};
+            static const Vector2 OFFSET = {
+                .x = COLOR_PICKER_RECT.x,
+                .y = COLOR_PICKER_RECT.y,
+            };
+            pos = Vector2Add(pos, OFFSET);
+            const Vector2 size = Vector2One();
+            DrawRectangleV(pos, size, color);
+        }
+
+        hue += DELTA_HUE;
     }
 
-    if (*inp_type == INP_TYPE_DROPPING) {
-        *inp_type = INP_TYPE_TINE;
+    // All the buttons and the container
+    DrawRectangleLinesEx(BTNS_CONTNR_RECT, 5.f, GRAY);
+
+    Color drop_bg_color, tine_bg_color;
+    Color drop_text_color, tine_text_color;
+    if (handler_ptr->inp_type == INP_TYPE_DROPPING) {
+        drop_bg_color = GRAY;
+        drop_text_color = RAYWHITE;
+        tine_bg_color = LIGHTGRAY;
+        tine_text_color = BLACK;
     } else {
-        *inp_type = INP_TYPE_DROPPING;
+        tine_bg_color = GRAY;
+        tine_text_color = RAYWHITE;
+        drop_bg_color = LIGHTGRAY;
+        drop_text_color = BLACK;
+    }
+
+    DrawRectangleRec(DROP_BTN_RECT, drop_bg_color);
+    DrawText("Drop", (int)DROP_BTN_RECT.x + 25.f, (int)DROP_BTN_RECT.y + 8.f,
+             REG_FONT_SIZE, drop_text_color);
+
+    DrawRectangleRec(TINE_BTN_RECT, tine_bg_color);
+    DrawText("Tine", (int)TINE_BTN_RECT.x + 25.f, (int)TINE_BTN_RECT.y + 8.f,
+             REG_FONT_SIZE, tine_text_color);
+
+    DrawRectangleRec(RESET_BTN_RECT, LIGHTGRAY);
+    DrawText("Reset", (int)RESET_BTN_RECT.x + 90.f, (int)RESET_BTN_RECT.y + 8.f,
+             REG_FONT_SIZE, BLACK);
+
+    DrawText("Space: Toggle Mode\nR: Clear Canvas", (int)RESET_BTN_RECT.x,
+             (int)RESET_BTN_RECT.y + RESET_BTN_RECT.height + 8.f,
+             SMALL_FONT_SIZE, BLACK);
+}
+
+void drawDrops(AppHandler* handler_ptr) {
+    for (size_t i = 0; i < handler_ptr->drop_count; i++) {
+        drawDrop(handler_ptr->drops[i]);
     }
 }
 
-void handleDropping(const int inp_type, DropHandler* handler) {
-    if (inp_type != INP_TYPE_DROPPING ||
+void handleDropping(AppHandler* handler_ptr) {
+    if (handler_ptr->inp_type != INP_TYPE_DROPPING ||
         !IsMouseButtonPressed(MOUSE_BUTTON_LEFT) ||
-        handler->drop_count >= MAX_DROPS) {
+        handler_ptr->drop_count >= MAX_DROPS) {
         return;
     }
 
-    Vector2 mouse = GetMousePosition();
+    const Vector2 mouse = GetMousePosition();
+
+    if (!CheckCollisionPointRec(mouse, CANVAS_RECT)) {
+        return;
+    }
 
     // modify all of the other drops before adding
-    for (size_t i = 0; i < handler->drop_count; i++) {
-        marbleDrop(handler->drops[i], mouse, DROP_RADIUS);
+    for (size_t i = 0; i < handler_ptr->drop_count; i++) {
+        marbleDrop(handler_ptr->drops[i], mouse, DROP_RADIUS);
     }
 
     const float hue = (float)GetRandomValue(0, 360);
     const Color color = ColorFromHSV(hue, 1.f, 1.f);
     const Drop drop = circularDrop(mouse, DROP_RADIUS, DROP_SIDES, color);
-    handler->drops[handler->drop_count] = drop;
-    handler->drop_count++;
+    handler_ptr->drops[handler_ptr->drop_count] = drop;
+    handler_ptr->drop_count++;
 }
 
-void handleTine(const int inp_type, DropHandler* handler) {
-    if (inp_type != INP_TYPE_TINE) {
+void handleKeyboardInputs(AppHandler* handler_ptr) {
+    if (IsKeyPressed(KEY_SPACE)) {
+        if (handler_ptr->inp_type == INP_TYPE_DROPPING) {
+            handler_ptr->inp_type = INP_TYPE_TINE;
+        } else {
+            handler_ptr->inp_type = INP_TYPE_DROPPING;
+        }
+    }
+
+    if (IsKeyPressed(KEY_R)) {
+        resetCanvas(handler_ptr);
+    }
+}
+
+void handleTine(AppHandler* handler_ptr) {
+    if (handler_ptr->inp_type != INP_TYPE_TINE) {
         return;
     }
 
     if (IsMouseButtonUp(MOUSE_BUTTON_LEFT)) {
-        handler->has_tine_started = false;
-    } else if (!IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
+        handler_ptr->has_tine_started = false;
         return;
     }
 
-    if (handler->has_tine_started) {
-        handler->tine_end = GetMousePosition();
-        handler->has_tine_started = false;
+    if (handler_ptr->has_tine_started) {
+        handler_ptr->tine_end = GetMousePosition();
+        handler_ptr->has_tine_started = false;
 
-        for (size_t i = 0; i < handler->drop_count; i++) {
-            const Vector2 startv = handler->tine_start;
-            const Vector2 endv = handler->tine_end;
+        for (size_t i = 0; i < handler_ptr->drop_count; i++) {
+            const Vector2 startv = handler_ptr->tine_start;
+            const Vector2 endv = handler_ptr->tine_end;
             const Vector2 mv = Vector2Subtract(endv, startv);
 
-            for (size_t i = 0; i < handler->drop_count; i++) {
-                tineDrop(handler->drops[i], startv, mv, 0.01f, 15.0f);
+            for (size_t i = 0; i < handler_ptr->drop_count; i++) {
+                tineDrop(handler_ptr->drops[i], startv, mv, 0.01f, 15.0f);
             }
         }
     } else {
-        handler->tine_start = GetMousePosition();
-        handler->has_tine_started = true;
+        handler_ptr->tine_start = GetMousePosition();
+        handler_ptr->has_tine_started = true;
     }
+}
+
+void handleUIBtnInputs(AppHandler* handler_ptr) {
+    if (!IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+        return;
+    }
+
+    const Vector2 mouse_pos = GetMousePosition();
+
+    if (CheckCollisionPointRec(mouse_pos, DROP_BTN_RECT)) {
+        handler_ptr->inp_type = INP_TYPE_DROPPING;
+        return;
+    }
+
+    if (CheckCollisionPointRec(mouse_pos, TINE_BTN_RECT)) {
+        handler_ptr->inp_type = INP_TYPE_TINE;
+        return;
+    }
+
+    if (CheckCollisionPointRec(mouse_pos, RESET_BTN_RECT)) {
+        resetCanvas(handler_ptr);
+        return;
+    }
+}
+
+void resetCanvas(AppHandler* handler_ptr) {
+    for (size_t i = 0; i < handler_ptr->drop_count; i++) {
+        destroyDrop(handler_ptr->drops[i]);
+    }
+    handler_ptr->drop_count = 0;
+    printf("~\n");
 }
