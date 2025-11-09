@@ -212,7 +212,7 @@ void drawComponents(AppHandler* handler_ptr) {
              (int)RAND_COLORS_BTN_RECT.y + 8.f, REG_FONT_SIZE,
              rand_btn_text_clr);
 
-    DrawText("Space: Toggle Mode\nR: Clear Canvas\nG: Random Colors",
+    DrawText("Space: Toggle Mode\nC: Clear Canvas\nR: Random Colors",
              (int)RAND_COLORS_BTN_RECT.x,
              (int)RAND_COLORS_BTN_RECT.y + RAND_COLORS_BTN_RECT.height + 8.f,
              SMALL_FONT_SIZE, BLACK);
@@ -262,8 +262,12 @@ void handleKeyboardInputs(AppHandler* handler_ptr) {
         }
     }
 
-    if (IsKeyPressed(KEY_R)) {
+    if (IsKeyPressed(KEY_C)) {
         resetCanvas(handler_ptr);
+    }
+
+    if (IsKeyPressed(KEY_R)) {
+        handler_ptr->use_random_colors = !handler_ptr->use_random_colors;
     }
 }
 
